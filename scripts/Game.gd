@@ -120,6 +120,6 @@ func keys(s: String) -> String:
 	if not pad:
 		return s
 	for pair in [["← →", "Croix ◄ ►"], ["Espace", "A"], ["X  Foudre", "B  Foudre"], ["E  ", "X  "], ["E · ", "X · "],
-			["↓  se cacher", "Croix ▼  se cacher"], ["Échap  pause", "Select  pause"], ["Échap : reprendre", "Select : reprendre"], ["Entrée", "A"], ["↑ ↓", "Croix ▲ ▼"]]:
+			["↓  se cacher", "Croix ▼  se cacher"], ["Échap  pause", "Start  pause"], ["Échap : reprendre", "Start : reprendre"], ["Q : revenir", "B : revenir"], ["Entrée", "A"], ["↑ ↓", "Croix ▲ ▼"]]:
 		s = s.replace(pair[0], pair[1])
 	return s

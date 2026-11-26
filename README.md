@@ -20,7 +20,7 @@ Sur Mac, en ligne de commande : `godot --path <ce dossier>`
 | Se cacher derrière une caisse (chapitre 2) | ↓ ou S | croix bas |
 | Choisir dans les menus | ↑ ↓ (← → pour la cible) | croix |
 | Annuler la cible | Échap | |
-| Pause (exploration) | Échap | Select |
+| Pause (exploration) | Échap | Start (B pour revenir au titre) |
 
 ## Les chapitres
 ### Acte I · L'Oiseau d'Orage

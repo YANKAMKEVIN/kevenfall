@@ -194,6 +194,7 @@ func _make_pause() -> Control:
 	s.set_anchors_preset(Control.PRESET_CENTER); s.position = Vector2(-300, 0); s.size = Vector2(600, 40)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	c.add_child(s)
+	c.set_meta("aide", s)
 	return c
 
 func _update_hud() -> void:
@@ -322,10 +323,12 @@ func _update_prompt() -> void:
 func _unhandled_input(e: InputEvent) -> void:
 	if e.is_action_pressed("pause") and not dialogue.active:
 		paused = not paused; pause_box.visible = paused
+		pause_box.get_meta("aide").text = Game.keys("Échap : reprendre     Q : revenir au titre")
 		Game.sfx("select", -8.0)
 		return
 	if paused:
-		if e is InputEventKey and e.pressed and e.physical_keycode == KEY_Q:
+		# Q au clavier, B à la manette (sinon impossible de quitter sans clavier)
+		if (e is InputEventKey and e.pressed and e.physical_keycode == KEY_Q) or (e is InputEventJoypadButton and e.pressed and e.button_index == JOY_BUTTON_B):
 			paused = false; main.goto("title")
 		return
 	if busy or dialogue.active: return
