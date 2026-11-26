@@ -540,8 +540,13 @@ func toast(text: String, col := Color.WHITE) -> void:
 	l.set_anchors_preset(Control.PRESET_CENTER_TOP); l.position = Vector2(-450, 90 + 40 * _toasts); l.size = Vector2(900, 40)
 	_toasts += 1
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; l.modulate.a = 0.0
+	# bandeau sombre : le texte doré restait illisible sur les décors clairs (Rêve Commun, effondrement)
+	var sb := StyleBoxFlat.new(); sb.bg_color = Color(0.03, 0.03, 0.08, 0.62); sb.set_corner_radius_all(10)
+	sb.content_margin_left = 16; sb.content_margin_right = 16; sb.content_margin_top = 4; sb.content_margin_bottom = 6
+	l.add_theme_stylebox_override("normal", sb)
 	hud.add_child(l)
-	var tw := create_tween(); tw.tween_property(l, "modulate:a", 1.0, 0.25); tw.tween_interval(2.4)
+	# le temps de lecture suit la longueur du message (2,4 s minimum)
+	var tw := create_tween(); tw.tween_property(l, "modulate:a", 1.0, 0.25); tw.tween_interval(maxf(2.4, text.length() / 16.0))
 	tw.tween_property(l, "modulate:a", 0.0, 0.5); tw.tween_callback(l.queue_free); tw.tween_callback(_toast_done)
 
 func _toast_done() -> void:
