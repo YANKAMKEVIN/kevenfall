@@ -12,6 +12,7 @@ var sel := 0
 var menu_box: VBoxContainer
 var entries: Array = []
 const MAIN_MENU := ["Nouvelle partie", "Chapitres", "Quitter"]
+const MAIN_MENU_SAVE := ["Continuer", "Nouvelle partie", "Chapitres", "Quitter"]
 const CHAPTERS := ["I · 1  Le village des Plumes", "I · 2  Le convoi", "I · 3  Le Pont de l'Oiseau", "II · 4  Le centre d'extraction", "II · 5  Les mines profondes", "II · 6  Le rêve de la Tortue", "II · 7  La Grande Foreuse", "III · 8  La mer de brume", "III · 9  Le dernier temple", "III · 10  La flotte d'Orsane", "III · 11  Le Rêve Commun", "Retour"]
 var t := 0.0
 var next_flash := 2.0
@@ -53,7 +54,7 @@ func _ready() -> void:
 	box.add_theme_constant_override("separation", 10)
 	add_child(box)
 	menu_box = box
-	_set_menu(MAIN_MENU)
+	_set_menu(_main_menu())
 	hint = Game.label(Game.keys("↑ ↓ pour choisir  ·  Entrée pour valider"), 18, Color(0.8, 0.85, 1.0, 0.7), Game.font_body, 6)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM); hint.position = Vector2(-300, -60); hint.size = Vector2(600, 30)
@@ -83,7 +84,7 @@ func _set_menu(list: Array) -> void:
 	for c in items: c.queue_free()
 	items.clear(); entries = list; sel = 0
 	for e in list:
-		var l := Game.label(e, 34 if list.size() <= 3 else (26 if list.size() <= 6 else 19), Color.WHITE, Game.font_bold, 10)
+		var l := Game.label(e, 34 if list.size() <= 4 else (26 if list.size() <= 6 else 19), Color.WHITE, Game.font_bold, 10)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		menu_box.add_child(l); items.append(l)
 	menu_box.position.y = -230 if list.size() <= 3 else (-370 if list.size() <= 8 else -455)
@@ -107,6 +108,9 @@ func _process(delta: float) -> void:
 		sky_mat.set_shader_parameter("flash", 1.0)
 		Game.sfx("thunder", -10.0, randf_range(0.85, 1.1))
 
+func _main_menu() -> Array:
+	return MAIN_MENU_SAVE if not Game.read_save().is_empty() else MAIN_MENU
+
 func _unhandled_input(e: InputEvent) -> void:
 	if not ready_input: return
 	if e.is_action_pressed("ui_down"):
@@ -114,16 +118,21 @@ func _unhandled_input(e: InputEvent) -> void:
 	elif e.is_action_pressed("ui_up"):
 		sel = (sel - 1 + items.size()) % items.size(); Game.sfx("select", -6.0); _refresh()
 	elif e.is_action_pressed("ui_cancel") and entries == CHAPTERS:
-		Game.sfx("cancel", -6.0); _set_menu(MAIN_MENU)
+		Game.sfx("cancel", -6.0); _set_menu(_main_menu())
 	elif e.is_action_pressed("ui_accept") or e.is_action_pressed("interact"):
 		Game.sfx("confirm", -4.0)
 		var choice: String = entries[sel]
 		if choice == "Chapitres":
 			_set_menu(CHAPTERS); return
 		if choice == "Retour":
-			_set_menu(MAIN_MENU); return
+			_set_menu(_main_menu()); return
 		if choice == "Quitter":
 			get_tree().quit(); return
+		if choice == "Continuer":
+			var at := Game.load_game()
+			if at != "":
+				ready_input = false
+				main.goto("explore", {"level": at}); return
 		ready_input = false
 		Game.reset()
 		var lvl := "Village"
@@ -137,4 +146,6 @@ func _unhandled_input(e: InputEvent) -> void:
 		elif choice.begins_with("III · 9"): lvl = "Temple"
 		elif choice.begins_with("III · 10"): lvl = "Flotte"
 		elif choice.begins_with("III · 11"): lvl = "ReveCommun"
-		main.goto("explore", {"level": lvl})
+		# Nouvelle partie : on écrase la sauvegarde. Chapitres : simple rejeu, la sauvegarde
+		# n'est réécrite qu'au chapitre suivant.
+		main.goto("explore", {"level": lvl, "nosave": choice != "Nouvelle partie"})

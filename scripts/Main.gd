@@ -23,7 +23,10 @@ func goto(screen: String, args := {}) -> void:
 	var scr: Script
 	match screen:
 		"title": scr = load("res://scripts/Title.gd")
-		"explore": scr = load("res://scripts/levels/%s.gd" % args.get("level", "Pont"))
+		"explore":
+			scr = load("res://scripts/levels/%s.gd" % args.get("level", "Pont"))
+			if not args.get("nosave", false):
+				Game.save_game(args.get("level", "Pont"))  # sauvegarde automatique au début du chapitre
 		"battle": scr = load("res://scripts/Battle.gd")
 		"ending": scr = load("res://scripts/Ending.gd")
 	current = scr.new()

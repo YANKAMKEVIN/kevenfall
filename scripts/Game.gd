@@ -46,9 +46,47 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--shots"):
 			add_child(load("res://tools/AutoShots.gd").new())
+		if a == "--unit":
+			add_child(load("res://tools/UnitTests.gd").new())
 
 func reset() -> void:
 	shards = 0; shards_taken = {}; talked_soldate = false; flags = {}
+
+# ------------------------------------------------------------------ sauvegarde
+# Une seule sauvegarde, écrite au début de chaque chapitre (format : SaveData).
+var save_path := "user://sauvegarde.json"
+
+func save_game(level: String) -> bool:
+	if not SaveData.LEVELS.has(level):
+		return false
+	var d := SaveData.make(level, shards, shards_taken, talked_soldate, flags)
+	# écriture dans un fichier temporaire puis renommage : une coupure ne laisse jamais un fichier à moitié écrit
+	var tmp := save_path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string(SaveData.to_text(d))
+	f.close()
+	return DirAccess.rename_absolute(tmp, save_path) == OK
+
+## Sauvegarde lisible, ou {} s'il n'y en a pas (ou si elle est abîmée).
+func read_save() -> Dictionary:
+	if not FileAccess.file_exists(save_path):
+		return {}
+	return SaveData.parse(FileAccess.get_file_as_string(save_path))
+
+## Recharge la partie ; renvoie le chapitre où reprendre, ou "" si impossible.
+func load_game() -> String:
+	var d := read_save()
+	if d.is_empty():
+		return ""
+	shards = d["shards"]
+	shards_taken = {}
+	for k in d["shards_taken"]:
+		shards_taken[k] = true
+	talked_soldate = d["talked_soldate"]
+	flags = d["flags"].duplicate(true)
+	return d["level"]
 
 func tex(id: String) -> Texture2D:
 	if _cache.has(id): return _cache[id]
