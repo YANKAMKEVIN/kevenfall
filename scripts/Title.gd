@@ -54,7 +54,7 @@ func _ready() -> void:
 	add_child(box)
 	menu_box = box
 	_set_menu(MAIN_MENU)
-	hint = Game.label("↑ ↓ pour choisir  ·  Entrée pour valider", 18, Color(0.8, 0.85, 1.0, 0.7), Game.font_body, 6)
+	hint = Game.label(Game.keys("↑ ↓ pour choisir  ·  Entrée pour valider"), 18, Color(0.8, 0.85, 1.0, 0.7), Game.font_body, 6)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM); hint.position = Vector2(-300, -60); hint.size = Vector2(600, 30)
 	add_child(hint)

@@ -18,6 +18,7 @@ var _sfx: Array[AudioStreamPlayer] = []
 var _cache := {}
 var font_title: FontVariation
 var font_body: FontVariation
+var pad := false         # vrai quand la dernière touche venait d'une manette : les aides affichent les boutons
 var font_bold: FontVariation
 var glow_tex: GradientTexture2D
 
@@ -104,3 +105,21 @@ func label(text: String, size: int, col := Color.WHITE, font: Font = null, outli
 		l.add_theme_constant_override("outline_size", outline)
 		l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
 	return l
+
+
+func _input(e: InputEvent) -> void:
+	if e is InputEventJoypadButton and e.pressed:
+		pad = true
+	elif e is InputEventJoypadMotion and absf(e.axis_value) > 0.5:
+		pad = true
+	elif (e is InputEventKey and e.pressed) or e is InputEventMouseButton:
+		pad = false
+
+## Traduit une aide écrite pour le clavier en boutons de manette (si on joue à la manette).
+func keys(s: String) -> String:
+	if not pad:
+		return s
+	for pair in [["← →", "Croix ◄ ►"], ["Espace", "A"], ["X  Foudre", "B  Foudre"], ["E  ", "X  "], ["E · ", "X · "],
+			["↓  se cacher", "Croix ▼  se cacher"], ["Échap  pause", "Select  pause"], ["Échap : reprendre", "Select : reprendre"], ["Entrée", "A"], ["↑ ↓", "Croix ▲ ▼"]]:
+		s = s.replace(pair[0], pair[1])
+	return s

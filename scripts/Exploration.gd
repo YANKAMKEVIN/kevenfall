@@ -33,6 +33,9 @@ var prompt: Label
 var hud: CanvasLayer
 var hud_shards: Label
 var hint_lbl: Label
+var hint_box: Control
+var _hint_src := ""
+var _hint_out := ""
 var sky_mat: ShaderMaterial
 var far: TextureRect
 var flash_rect: ColorRect
@@ -173,6 +176,7 @@ func _build_hud() -> void:
 	hint_lbl = Game.label(cfg.get("hint", "← →  marcher     Espace  sauter     E  parler     Échap  pause"), 17, Color(1, 1, 1, 0.8), Game.font_body, 4)
 	hb.add_child(hint_lbl)
 	hud.add_child(hb)
+	hint_box = hb
 	prompt = Game.label("", 20, Game.GOLD, Game.font_bold, 8)
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; prompt.size = Vector2(240, 30)
 	prompt.visible = false; hud.add_child(prompt)
@@ -290,19 +294,30 @@ func _nearest_npc() -> String:
 			return k
 	return ""
 
+## Aide du bas : suit le clavier ou la manette, et se cache sous les dialogues (elle passait à moitié dessous).
+func _refresh_hint() -> void:
+	if hint_lbl == null:
+		return
+	if hint_lbl.text != _hint_out:
+		_hint_src = hint_lbl.text
+	_hint_out = Game.keys(_hint_src)
+	hint_lbl.text = _hint_out
+	hint_box.visible = not dialogue.active
+
 func _update_prompt() -> void:
+	_refresh_hint()
 	var k := "" if busy else _nearest_npc()
 	prompt.visible = k != ""
 	if prompt.visible and objects.has(k):
 		var sp2 := get_viewport().get_canvas_transform() * Vector2(objects[k].x, GROUND_Y - objects[k].get("h", 200.0))
 		prompt.position = sp2 - Vector2(120, 0) + Vector2(0, sin(t * 4.0) * 4.0)
-		prompt.text = "E · " + objects[k].get("label", "Examiner")
+		prompt.text = Game.keys("E · " + objects[k].get("label", "Examiner"))
 	elif prompt.visible:
 		var a: Actor = npcs[k]
 		var top := a.sprite.texture.get_height() * a.base_scale if a.sprite and a.sprite.texture else 160.0
 		var sp := get_viewport().get_canvas_transform() * (a.position + Vector2(0, -top - 40))
 		prompt.position = sp - Vector2(120, 0) + Vector2(0, sin(t * 4.0) * 4.0)
-		prompt.text = "E · Parler"
+		prompt.text = Game.keys("E · Parler")
 
 func _unhandled_input(e: InputEvent) -> void:
 	if e.is_action_pressed("pause") and not dialogue.active:
