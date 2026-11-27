@@ -1343,7 +1343,7 @@ func _victory() -> void:
 		create_tween().tween_property(lb, "modulate:a", 1.0, 0.4)
 		Game.sfx("pickup", -10.0, 1.0 + box.get_child_count() * 0.1)
 		await get_tree().create_timer(0.6).timeout
-	var cont := Game.label("Entrée pour continuer", 20, Color(1, 1, 1, 0.7), Game.font_body, 6)
+	var cont := Game.label(Game.keys("Entrée pour continuer"), 20, Color(1, 1, 1, 0.7), Game.font_body, 6)
 	cont.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; box.add_child(cont)
 	await _wait_accept()
 	if encounter == "village":
@@ -1374,7 +1374,7 @@ func _defeat() -> void:
 	var v := Game.label("Le rêve vacille...", 64, Color("b08cff"), Game.font_title, 12)
 	v.set_anchors_preset(Control.PRESET_CENTER); v.position = Vector2(-500, -100); v.size = Vector2(1000, 90)
 	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; layer.add_child(v)
-	var s := Game.label("Entrée pour réessayer le combat", 24, Color.WHITE, Game.font_body, 6)
+	var s := Game.label(Game.keys("Entrée pour réessayer le combat"), 24, Color.WHITE, Game.font_body, 6)
 	s.set_anchors_preset(Control.PRESET_CENTER); s.position = Vector2(-300, 10); s.size = Vector2(600, 40)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; layer.add_child(s)
 	await get_tree().create_timer(1.0).timeout

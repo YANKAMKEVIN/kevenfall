@@ -33,6 +33,9 @@ var prompt: Label
 var hud: CanvasLayer
 var hud_shards: Label
 var hint_lbl: Label
+var hint_box: Control
+var _hint_src := ""
+var _hint_out := ""
 var sky_mat: ShaderMaterial
 var far: TextureRect
 var flash_rect: ColorRect
@@ -173,6 +176,7 @@ func _build_hud() -> void:
 	hint_lbl = Game.label(cfg.get("hint", "← →  marcher     Espace  sauter     E  parler     Échap  pause"), 17, Color(1, 1, 1, 0.8), Game.font_body, 4)
 	hb.add_child(hint_lbl)
 	hud.add_child(hb)
+	hint_box = hb
 	prompt = Game.label("", 20, Game.GOLD, Game.font_bold, 8)
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; prompt.size = Vector2(240, 30)
 	prompt.visible = false; hud.add_child(prompt)
@@ -190,6 +194,7 @@ func _make_pause() -> Control:
 	s.set_anchors_preset(Control.PRESET_CENTER); s.position = Vector2(-300, 0); s.size = Vector2(600, 40)
 	s.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	c.add_child(s)
+	c.set_meta("aide", s)
 	return c
 
 func _update_hud() -> void:
@@ -290,27 +295,40 @@ func _nearest_npc() -> String:
 			return k
 	return ""
 
+## Aide du bas : suit le clavier ou la manette, et se cache sous les dialogues (elle passait à moitié dessous).
+func _refresh_hint() -> void:
+	if hint_lbl == null:
+		return
+	if hint_lbl.text != _hint_out:
+		_hint_src = hint_lbl.text
+	_hint_out = Game.keys(_hint_src)
+	hint_lbl.text = _hint_out
+	hint_box.visible = not dialogue.active
+
 func _update_prompt() -> void:
+	_refresh_hint()
 	var k := "" if busy else _nearest_npc()
 	prompt.visible = k != ""
 	if prompt.visible and objects.has(k):
 		var sp2 := get_viewport().get_canvas_transform() * Vector2(objects[k].x, GROUND_Y - objects[k].get("h", 200.0))
 		prompt.position = sp2 - Vector2(120, 0) + Vector2(0, sin(t * 4.0) * 4.0)
-		prompt.text = "E · " + objects[k].get("label", "Examiner")
+		prompt.text = Game.keys("E · " + objects[k].get("label", "Examiner"))
 	elif prompt.visible:
 		var a: Actor = npcs[k]
 		var top := a.sprite.texture.get_height() * a.base_scale if a.sprite and a.sprite.texture else 160.0
 		var sp := get_viewport().get_canvas_transform() * (a.position + Vector2(0, -top - 40))
 		prompt.position = sp - Vector2(120, 0) + Vector2(0, sin(t * 4.0) * 4.0)
-		prompt.text = "E · Parler"
+		prompt.text = Game.keys("E · Parler")
 
 func _unhandled_input(e: InputEvent) -> void:
 	if e.is_action_pressed("pause") and not dialogue.active:
 		paused = not paused; pause_box.visible = paused
+		pause_box.get_meta("aide").text = Game.keys("Échap : reprendre     Q : revenir au titre")
 		Game.sfx("select", -8.0)
 		return
 	if paused:
-		if e is InputEventKey and e.pressed and e.physical_keycode == KEY_Q:
+		# Q au clavier, B à la manette (sinon impossible de quitter sans clavier)
+		if (e is InputEventKey and e.pressed and e.physical_keycode == KEY_Q) or (e is InputEventJoypadButton and e.pressed and e.button_index == JOY_BUTTON_B):
 			paused = false; main.goto("title")
 		return
 	if busy or dialogue.active: return
@@ -522,8 +540,13 @@ func toast(text: String, col := Color.WHITE) -> void:
 	l.set_anchors_preset(Control.PRESET_CENTER_TOP); l.position = Vector2(-450, 90 + 40 * _toasts); l.size = Vector2(900, 40)
 	_toasts += 1
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; l.modulate.a = 0.0
+	# bandeau sombre : le texte doré restait illisible sur les décors clairs (Rêve Commun, effondrement)
+	var sb := StyleBoxFlat.new(); sb.bg_color = Color(0.03, 0.03, 0.08, 0.62); sb.set_corner_radius_all(10)
+	sb.content_margin_left = 16; sb.content_margin_right = 16; sb.content_margin_top = 4; sb.content_margin_bottom = 6
+	l.add_theme_stylebox_override("normal", sb)
 	hud.add_child(l)
-	var tw := create_tween(); tw.tween_property(l, "modulate:a", 1.0, 0.25); tw.tween_interval(2.4)
+	# le temps de lecture suit la longueur du message (2,4 s minimum)
+	var tw := create_tween(); tw.tween_property(l, "modulate:a", 1.0, 0.25); tw.tween_interval(maxf(2.4, text.length() / 16.0))
 	tw.tween_property(l, "modulate:a", 0.0, 0.5); tw.tween_callback(l.queue_free); tw.tween_callback(_toast_done)
 
 func _toast_done() -> void:

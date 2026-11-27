@@ -71,7 +71,7 @@ func _end_card() -> void:
 		["Entrée pour continuer vers l'acte II", 20, Color(1, 1, 1, 0.75), Game.font_body],
 	]
 	for it in items:
-		var l := Game.label(it[0], it[1], it[2], it[3], 10)
+		var l := Game.label(Game.keys(it[0]), it[1], it[2], it[3], 10)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		box.add_child(l)
 	var tw := create_tween(); tw.tween_property(root, "modulate:a", 1.0, 1.5)

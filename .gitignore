@@ -2,3 +2,4 @@
 *.import.tmp
 export/
 .DS_Store
+ci-out/

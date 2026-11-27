@@ -20,7 +20,7 @@ Sur Mac, en ligne de commande : `godot --path <ce dossier>`
 | Se cacher derrière une caisse (chapitre 2) | ↓ ou S | croix bas |
 | Choisir dans les menus | ↑ ↓ (← → pour la cible) | croix |
 | Annuler la cible | Échap | |
-| Pause (exploration) | Échap | Select |
+| Pause (exploration) | Échap | Start (B pour revenir au titre) |
 
 ## Les chapitres
 ### Acte I · L'Oiseau d'Orage
@@ -67,3 +67,14 @@ Le combat du pont a été réglé en simulant 2 400 parties (`tools/sim_combat.p
 - `tools/art/` : les prompts Codex et le script `generer.sh` pour repeindre ou ajouter des visuels.
 - `scripts/levels/` : les chapitres (Village, Convoi, Pont, Centre, Mines, Reve, Effondrement, Brume, Temple, Flotte, ReveCommun).
 - `tools/AutoShots.gd` : outil qui joue tout le jeu tout seul (`--act2` pour commencer à l'acte II, `--fin2` pour commencer au chapitre 6, `--eveiller` pour choisir Éveiller, `--act3` pour l'acte III, `--fin=accord|sommeil|reveil` pour la fin) et prend des captures (`godot --path . -- --shots=/chemin`).
+
+## Sauvegarde
+La partie est sauvegardée automatiquement au début de chaque chapitre (`user://sauvegarde.json`) ; « Continuer » apparaît alors sur l'écran titre. Le menu « Chapitres » sert au rejeu et n'écrase pas la sauvegarde.
+Le format est versionné (`scripts/SaveData.gd`, `VERSION`) : toute évolution du format incrémente la version et ajoute une migration ; une sauvegarde abîmée ou venant d'une version plus récente est ignorée, jamais chargée à moitié.
+
+## Tests
+```bash
+godot --headless --path . -- --unit        # tests unitaires (sauvegarde, aides manette)
+GODOT=godot tools/ci.sh --act3             # le robot joue un lot (voir .github/workflows/tests.yml)
+```
+La CI GitHub lance les tests unitaires et la partie complète en trois lots parallèles sur chaque PR.

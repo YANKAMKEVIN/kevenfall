@@ -1,0 +1,71 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unitaires:
+    name: Tests unitaires (sauvegarde, aides manette)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installer Godot 4.3 et un écran virtuel
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libgl1-mesa-dri > /dev/null
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/godot.zip" \
+            "https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip"
+          echo "7de56444b130b10af84d19c7e0cf63cf9e9937ee4ba94364c3b7dd114253ca21  $RUNNER_TEMP/godot.zip" | sha256sum --check
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          echo "GODOT=$RUNNER_TEMP/godot/Godot_v4.3-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Tests unitaires
+        run: |
+          "$GODOT" --headless --path . --import > /dev/null 2>&1 || true
+          "$GODOT" --headless --path . --import > /dev/null 2>&1 || true
+          "$GODOT" --headless --path . -- --unit
+
+  partie:
+    # Le jeu complet prend ~30 min sans GPU : trois lots en parallèle.
+    name: Partie (${{ matrix.lot.nom }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        lot:
+          - { nom: "actes I et II, chap. 1 à 5", args: "--stop-after=act2" }
+          - { nom: "acte II, chap. 6 et 7", args: "--fin2 --stop-after=fin2" }
+          - { nom: "acte III et fin", args: "--act3" }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installer Godot 4.3 et un écran virtuel
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libgl1-mesa-dri > /dev/null
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/godot.zip" \
+            "https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip"
+          echo "7de56444b130b10af84d19c7e0cf63cf9e9937ee4ba94364c3b7dd114253ca21  $RUNNER_TEMP/godot.zip" | sha256sum --check
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          echo "GODOT=$RUNNER_TEMP/godot/Godot_v4.3-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Le robot joue le lot
+        run: tools/ci.sh ${{ matrix.lot.args }}
+      - name: Captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: captures-${{ strategy.job-index }}
+          path: ci-out/
+          retention-days: 7

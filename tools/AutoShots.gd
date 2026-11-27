@@ -7,6 +7,7 @@ var main
 var auto_dialogue := true
 var auto_battle := true
 var log_lines: Array = []
+var fails := 0           # attentes de progression qui n'ont jamais abouti (le jeu est bloqué)
 
 func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
@@ -59,13 +60,28 @@ func _process(delta: float) -> void:
 		elif c.state == "target":
 			press("ui_accept")
 
-func _until(cond: Callable, timeout := 60.0) -> bool:
+## soft = attente seulement utile pour une capture (ex. une attaque combinée que le robot
+## ne déclenche pas toujours) : son échec ne fait pas échouer le test.
+func _until(cond: Callable, timeout := 60.0, soft := false) -> bool:
 	var tt := 0.0
 	while tt < timeout:
 		if cond.call(): return true
 		await _wait(0.1); tt += 0.1
-	print("TIMEOUT")
+	if soft:
+		print("TIMEOUT (capture seulement)")
+	else:
+		fails += 1
+		print("ECHEC : attente de progression expirée (%d s) après la capture précédente" % int(timeout))
 	return false
+
+## Fin du test : code de sortie non nul si le jeu s'est bloqué (pour la CI).
+func _finish() -> void:
+	print("RESULTAT : %d échec(s)" % fails)
+	print("done")
+	get_tree().quit(1 if fails > 0 else 0)
+
+func _stop_after(seg: String) -> bool:
+	return ("--stop-after=" + seg) in OS.get_cmdline_user_args()
 
 func _cur() -> Node: return main.current
 
@@ -80,16 +96,14 @@ func _run() -> void:
 		Game.flags["communion1"] = "bercer"; Game.flags["communion2"] = "eveiller"
 		main.goto("explore", {"level": "ReveCommun"})
 		await _act3b()
-		print("done")
-		get_tree().quit()
+		_finish()
 		return
 	if "--act3" in ua:
 		Game.reset()
 		Game.flags["communion1"] = "bercer"
 		main.goto("explore", {"level": "Brume"})
 		await _act3()
-		print("done")
-		get_tree().quit()
+		_finish()
 		return
 	if "--fin2" in ua:
 		Game.reset()
@@ -100,11 +114,13 @@ func _run() -> void:
 			main.goto("explore", {"level": "Centre"})
 		else:
 			await _act1()
+			if _stop_after("act1"): _finish(); return
 		await _act2()
+		if _stop_after("act2"): _finish(); return
 	await _fin2()
+	if _stop_after("fin2"): _finish(); return
 	await _act3()
-	print("done")
-	get_tree().quit()
+	_finish()
 
 func _act1() -> void:
 	# --- Chapitre 1
@@ -188,7 +204,7 @@ func _act1() -> void:
 	await _until(func(): return _cur().get("encounter") != null, 90)
 	await _wait(3.0)
 	await shot("13_combat_pont")
-	await _until(func(): return _cur().get("state") == "anim" and _cur().banner.text.contains("ONDE"), 120)
+	await _until(func(): return _cur().get("state") == "anim" and _cur().banner.text.contains("ONDE"), 120, true)
 	await _wait(1.3)
 	await shot("14_onde_de_choc")
 	await _until(func(): return _cur().get("state") == "end", 180)
@@ -271,7 +287,7 @@ func _act2() -> void:
 	await shot("26_ilo")
 	auto_dialogue = true
 	await _until(func(): return _cur().get("encounter") != null, 90)
-	await _until(func(): return _cur().get("state") == "anim" and _cur().banner.text.contains("★"), 120)
+	await _until(func(): return _cur().get("state") == "anim" and _cur().banner.text.contains("★"), 120, true)
 	await _wait(1.2)
 	await shot("27_combo_orage")
 	await _until(func(): return _cur().get("state") == "end", 240)
