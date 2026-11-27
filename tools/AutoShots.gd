@@ -487,6 +487,7 @@ func _act3() -> void:
 	await _wait(1.5)
 	await shot("56_gamin_s_efface")
 	auto_dialogue = true
+	if _stop_after("act3a"): return  # la CI joue le chapitre 11 dans un lot à part (--final)
 	await _act3b()
 
 func _act3b() -> void:

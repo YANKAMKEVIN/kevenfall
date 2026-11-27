@@ -67,7 +67,7 @@ Le combat du pont a été réglé en simulant 2 400 parties (`tools/sim_combat.p
 - `tools/art/` : les prompts Codex et le script `generer.sh` pour repeindre ou ajouter des visuels.
 - `scripts/battle/` : le combat, découpé en couches qui s'héritent : `BattleBase` (état, aides, fin de combat), `BattleStage` (scène, combattants, interface, menu), `BattleHeroes` (actions des héros, combos), `BattleEnemies` (tour des ennemis). `scripts/Battle.gd` ne garde que la boucle et les entrées.
 - `scripts/levels/` : les chapitres (Village, Convoi, Pont, Centre, Mines, Reve, Effondrement, Brume, Temple, Flotte, ReveCommun).
-- `tools/AutoShots.gd` : outil qui joue tout le jeu tout seul (`--act2` pour commencer à l'acte II, `--fin2` pour commencer au chapitre 6, `--eveiller` pour choisir Éveiller, `--act3` pour l'acte III, `--fin=accord|sommeil|reveil` pour la fin) et prend des captures (`godot --path . -- --shots=/chemin`).
+- `tools/AutoShots.gd` : outil qui joue tout le jeu tout seul (`--act2` pour commencer à l'acte II, `--fin2` pour commencer au chapitre 6, `--eveiller` pour choisir Éveiller, `--act3` pour l'acte III (`--stop-after=act3a` s'arrête avant le chapitre 11), `--final` pour le chapitre 11 seul, `--fin=accord|sommeil|reveil` pour la fin) et prend des captures (`godot --path . -- --shots=/chemin`).
 
 ## Sauvegarde
 La partie est sauvegardée automatiquement au début de chaque chapitre (`user://sauvegarde.json`) ; « Continuer » apparaît alors sur l'écran titre. Le menu « Chapitres » sert au rejeu et n'écrase pas la sauvegarde.
@@ -81,4 +81,4 @@ Le numéro est dans `project.godot` (`application/config/version`), lu par `Game
 godot --headless --path . -- --unit        # tests unitaires (sauvegarde, aides manette, version)
 GODOT=godot tools/ci.sh --act3             # le robot joue un lot (voir .github/workflows/tests.yml)
 ```
-La CI GitHub lance les tests unitaires et la partie complète en trois lots parallèles sur chaque PR.
+La CI GitHub lance les tests unitaires et la partie complète en quatre lots parallèles sur chaque PR.
