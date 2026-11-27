@@ -20,6 +20,7 @@ func _ready() -> void:
 	_test_rejets()
 	_test_fichier()
 	_test_aides_manette()
+	_test_version()
 	print("RESULTAT : %d test(s), %d échec(s)" % [count, fails])
 	get_tree().quit(1 if fails > 0 else 0)
 
@@ -94,3 +95,9 @@ func _test_aides_manette() -> void:
 	check(Game.keys("← →  marcher     Espace  sauter     E  parler     Échap  pause") == "Croix ◄ ►  marcher     A  sauter     X  parler     Start  pause", "à la manette, l'aide passe en boutons")
 	check(Game.keys("Entrée pour continuer") == "A pour continuer", "« Entrée » devient « A »")
 	Game.pad = was
+
+func _test_version() -> void:
+	var v := Game.version()
+	check(v == "1.1.0", "numéro de version lu dans project.godot (%s)" % v)
+	var parts := v.split(".")
+	check(parts.size() == 3 and Array(parts).all(func(x: String) -> bool: return x.is_valid_int()), "version au format majeur.mineur.correctif")

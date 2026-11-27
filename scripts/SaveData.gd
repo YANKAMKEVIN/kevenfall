@@ -50,7 +50,7 @@ static func parse(text: String) -> Dictionary:
 ## Amène une sauvegarde d'une version antérieure à VERSION.
 static func migrate(d: Dictionary) -> Dictionary:
 	var out := d.duplicate(true)
-	var v = out.get("version", null)
+	var v: Variant = out.get("version", null)
 	if typeof(v) != TYPE_INT and typeof(v) != TYPE_FLOAT:
 		return {}  # pas de version : ce n'est pas une sauvegarde de Kevenfall
 	var version := int(v)

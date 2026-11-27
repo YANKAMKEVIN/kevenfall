@@ -3,7 +3,7 @@ extends Node
 ## Lancement : godot --path . -- --shots=<dossier>
 
 var out := "user://shots"
-var main
+var main: Main
 var auto_dialogue := true
 var auto_battle := true
 var log_lines: Array = []
@@ -38,7 +38,7 @@ func _process(delta: float) -> void:
 	_tick += delta
 	if _tick < 0.25 or main == null: return
 	_tick = 0.0
-	var c = main.current
+	var c: Variant = main.current
 	if c == null: return
 	if auto_dialogue and "dialogue" in c and c.dialogue and c.dialogue.active:
 		press("interact")
@@ -87,7 +87,7 @@ func _cur() -> Node: return main.current
 
 func _run() -> void:
 	await _wait(1.0)
-	main = get_tree().root.get_node("Main")
+	main = get_tree().root.get_node("Main") as Main
 	await _wait(2.0)
 	await shot("01_titre")
 	var ua := OS.get_cmdline_user_args()
@@ -131,7 +131,7 @@ func _act1() -> void:
 	await shot("02_intro")
 	auto_dialogue = true
 	await _until(func(): return _cur().get("busy") == false, 40)
-	var v = _cur()
+	var v: Variant = _cur()
 	await shot("03_village")
 	v.player.position.x = 620; v.cam.reset_smoothing()
 	await _wait(0.5)
@@ -176,7 +176,7 @@ func _act1() -> void:
 	# --- Chapitre 2
 	await _wait(1.0)
 	await _until(func(): return _cur().busy == false, 30)
-	var cv = _cur()
+	var cv: Variant = _cur()
 	cv.player.position.x = 600; cv.cam.reset_smoothing()
 	await _wait(1.5)
 	await shot("10_convoi")
@@ -196,7 +196,7 @@ func _act1() -> void:
 	# --- Chapitre 3
 	await _wait(1.0)
 	await _until(func(): return _cur().get("cutscene_done") != null and _cur().busy == false, 30)
-	var p = _cur()
+	var p: Variant = _cur()
 	p.player.position.x = 700; p.cam.reset_smoothing()
 	p.talk("soldate")
 	await _until(func(): return p.busy == false, 30)
@@ -210,7 +210,7 @@ func _act1() -> void:
 	await _until(func(): return _cur().get("state") == "end", 180)
 	await _wait(4.5)
 	await shot("15_victoire")
-	var b = _cur()
+	var b: Variant = _cur()
 	print("BATTLE hp: ", b._f("gamin").hp, " / ", b._f("soldate").hp)
 	await press("ui_accept")
 	await _until(func(): return _cur().get("encounter") == null and _cur().has_method("_end_card"), 20)
@@ -227,12 +227,12 @@ func _act2() -> void:
 	await shot("17_acte2")
 	auto_dialogue = true
 	await _until(func(): return _cur().busy == false, 60)
-	var c = _cur()
+	var c: Variant = _cur()
 	c.player.position.x = 700; c.cam.reset_smoothing()
 	await _wait(1.5)
 	await shot("18_centre")
 	for k in ["r1", "r2", "r3"]:
-		var o = null
+		var o: Variant = null
 		for ob in c.cfg.objects:
 			if ob.id == k: o = ob
 		c.player.position.x = o.x - 60; c.cam.reset_smoothing()
@@ -263,7 +263,7 @@ func _act2() -> void:
 	await _until(func(): return _cur().get("crystal_nodes") != null, 30)
 	await _wait(1.0)
 	await _until(func(): return _cur().busy == false, 60)
-	var m = _cur()
+	var m: Variant = _cur()
 	m.player.position.x = 500; m.cam.reset_smoothing()
 	await _wait(1.0)
 	await shot("23_mines_sombres")
@@ -300,7 +300,7 @@ func _fin2() -> void:
 	await _until(func(): return _cur().get("lantern_nodes") != null, 90)
 	await _wait(1.0)
 	await _until(func(): return _cur().busy == false, 60)
-	var r = _cur()
+	var r: Variant = _cur()
 	r.player.position.x = 700; r.cam.reset_smoothing()
 	await _wait(1.2)
 	await shot("29_reve")
@@ -347,7 +347,7 @@ func _fin2() -> void:
 	await _until(func(): return _cur().get("debris") != null, 120)
 	await _wait(1.0)
 	await _until(func(): return _cur().busy == false, 60)
-	var e = _cur()
+	var e: Variant = _cur()
 	e.player.position.x = 1100; e.player.facing = 1; e.cam.reset_smoothing()
 	e.next_debris = 0.0
 	await _wait(0.75)
@@ -393,7 +393,7 @@ func _act3() -> void:
 	await shot("43_acte3")
 	auto_dialogue = true
 	await _until(func(): return _cur().busy == false, 90)
-	var b = _cur()
+	var b: Variant = _cur()
 	b.player.position.x = 650; b.cam.reset_smoothing()
 	await _wait(1.0)
 	await shot("44_mer_de_brume")
@@ -417,12 +417,12 @@ func _act3() -> void:
 	await _until(func(): return _cur().get("revealed") != null, 90)
 	await _wait(1.0)
 	await _until(func(): return _cur().busy == false, 60)
-	var t3 = _cur()
+	var t3: Variant = _cur()
 	t3.player.position.x = 1850; t3.cam.reset_smoothing()
 	await _wait(1.0)
 	await shot("47_temple")
 	for k in ["f1", "f2", "f3"]:
-		var o = null
+		var o: Variant = null
 		for ob in t3.cfg.objects:
 			if ob.id == k: o = ob
 		t3.player.position.x = o.x - 50; t3.cam.reset_smoothing()
@@ -460,7 +460,7 @@ func _act3() -> void:
 	await _until(func(): return _cur().has_method("_hit_shot"), 120)
 	await _wait(1.0)
 	await _until(func(): return _cur().busy == false, 60)
-	var f = _cur()
+	var f: Variant = _cur()
 	f.player.position.x = 1150; f.player.facing = 1; f.cam.reset_smoothing()
 	f.next_shot = 0.0
 	await _wait(0.8)
@@ -495,7 +495,7 @@ func _act3b() -> void:
 	await _until(func(): return _cur().get("heard") != null, 120)
 	await _wait(1.0)
 	await _until(func(): return _cur().busy == false, 90)
-	var r = _cur()
+	var r: Variant = _cur()
 	r.player.position.x = 700; r.cam.reset_smoothing()
 	await _wait(1.0)
 	await shot("57_reve_commun")
