@@ -10,7 +10,7 @@ const GRAVITY := 2100.0
 const COYOTE := 0.1
 const BUFFER := 0.13
 
-var main
+var main: Main
 var args := {}
 var cfg := {}
 
@@ -568,7 +568,7 @@ func _check_shards() -> void:
 # ---------------------------------------------------------------- sous-objets
 class Deck extends Node2D:
 	## Le sol (tuile peinte répétée) et les plateformes flottantes.
-	var ex
+	var ex: Exploration
 	func _draw() -> void:
 		var tile: Texture2D = Game.tex(ex.cfg.get("tile", "tuile_pont"))
 		var h: float = ex.cfg.get("tile_h", 300.0)
@@ -600,7 +600,7 @@ class Deck extends Node2D:
 
 class GlowLayer extends Node2D:
 	## Halos additifs.
-	var ex
+	var ex: Exploration
 	func _process(_d: float) -> void: queue_redraw()
 	func _draw() -> void:
 		var tt := Time.get_ticks_msec() / 1000.0
@@ -644,7 +644,7 @@ class Revelin extends Node2D:
 			spr = Sprite2D.new(); spr.texture = tx; spr.scale = Vector2(0.32, 0.32); add_child(spr)
 	func _process(d: float) -> void:
 		t += d
-		var ex = get_parent()
+		var ex := get_parent() as Exploration
 		if ex.player and ex.player.position.distance_to(position + Vector2(0, 60)) < 90.0:
 			flee = (position - ex.player.position + Vector2(0, -60)).normalized() * 260.0
 		flee = flee.move_toward(Vector2.ZERO, d * 200.0)

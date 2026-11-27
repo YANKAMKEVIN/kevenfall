@@ -1,7 +1,7 @@
 extends Control
 ## Écran titre.
 
-var main
+var main: Main
 var args := {}
 var sky: ColorRect
 var sky_mat: ShaderMaterial
@@ -59,7 +59,7 @@ func _ready() -> void:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM); hint.position = Vector2(-300, -60); hint.size = Vector2(600, 30)
 	add_child(hint)
-	var ver := Game.label("Kevenfall · v0.5", 14, Color(1, 1, 1, 0.4))
+	var ver := Game.label("Kevenfall · v" + Game.version(), 14, Color(1, 1, 1, 0.4))
 	ver.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT); ver.position = Vector2(-260, -30)
 	add_child(ver)
 	Game.music("music_explore", -6.0)

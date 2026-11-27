@@ -49,6 +49,10 @@ func _ready() -> void:
 		if a == "--unit":
 			add_child(load("res://tools/UnitTests.gd").new())
 
+## Numéro de version (project.godot, application/config/version).
+func version() -> String:
+	return str(ProjectSettings.get_setting("application/config/version", "0.0.0"))
+
 func reset() -> void:
 	shards = 0; shards_taken = {}; talked_soldate = false; flags = {}
 

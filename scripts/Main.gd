@@ -1,4 +1,5 @@
 extends Node
+class_name Main
 ## Enchaîne les écrans : titre -> exploration -> combat -> fin.
 
 var current: Node

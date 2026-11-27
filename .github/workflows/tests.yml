@@ -47,7 +47,8 @@ jobs:
         lot:
           - { nom: "actes I et II, chap. 1 à 5", args: "--stop-after=act2" }
           - { nom: "acte II, chap. 6 et 7", args: "--fin2 --stop-after=fin2" }
-          - { nom: "acte III et fin", args: "--act3" }
+          - { nom: "acte III, chap. 8 à 10", args: "--act3 --stop-after=act3a" }
+          - { nom: "chap. 11 et fin", args: "--final" }
     steps:
       - uses: actions/checkout@v4
       - name: Installer Godot 4.3 et un écran virtuel

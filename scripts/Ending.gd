@@ -1,7 +1,7 @@
 extends Node2D
 ## Après le combat : la Soldate retire les entraves, la capitale en vue, carte de fin.
 
-var main
+var main: Main
 var args := {}
 var dialogue: Dialogue
 var bg: Sprite2D
