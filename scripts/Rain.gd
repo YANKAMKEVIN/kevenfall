@@ -19,8 +19,9 @@ func _new_drop(anywhere: bool) -> Dictionary:
 func _process(delta: float) -> void:
 	for d in drops:
 		d.p += Vector2(-0.28, 1.0) * d.v * delta
-		if d.p.y > size.y + 20 or d.p.x < -150:
-			var nd := _new_drop(false); d.p = nd.p; d.z = nd.z; d.v = nd.v
+		if d.p.y > size.y + 20 or d.p.x < -150:  # la goutte repart d'en haut (sans allouer)
+			d.z = randf_range(0.4, 1.0); d.v = lerpf(700.0, 1400.0, d.z)
+			d.p = Vector2(randf_range(-100, size.x + 200), randf_range(-80, -10))
 	queue_redraw()
 
 func _draw() -> void:
