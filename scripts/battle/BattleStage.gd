@@ -191,25 +191,40 @@ func _enemy_bar(e: Dictionary) -> Dictionary:
 	var st := Game.label("", 14, Game.CYAN, Game.font_bold, 6); st.position = Vector2(0, 44); box.add_child(st)
 	return {"box": box, "bar": bar, "atb": atb, "st": st}
 
+## Appelée à chaque image : les textes ne sont reformatés (et les thèmes touchés) que
+## quand la valeur affichée change, pour ne pas allouer de chaînes ni relancer la mise en page à chaque image.
 func _refresh_ui() -> void:
 	if commun_bar:
 		commun_bar.v = commun / 100.0; commun_bar.full = commun >= 100.0
-		commun_lbl.add_theme_color_override("font_color", Game.GOLD.lerp(Game.CYAN, 0.5 + 0.5 * sin(t * 5)) if commun >= 100.0 else Game.GOLD)
+		if commun >= 100.0:
+			commun_lbl.add_theme_color_override("font_color", Game.GOLD.lerp(Game.CYAN, 0.5 + 0.5 * sin(t * 5)))
+		elif commun_lbl.get_meta("pulse", true):
+			commun_lbl.add_theme_color_override("font_color", Game.GOLD)
+		commun_lbl.set_meta("pulse", commun >= 100.0)
 	for h in heroes:
 		var r: Dictionary = rows[h.id]
-		r.hp.text = "PV %d / %d" % [h.hp, h.max_hp]
-		r.hp.add_theme_color_override("font_color", Color("ff7a7a") if h.hp < h.max_hp * 0.3 else Color.WHITE)
+		var low: bool = h.hp < h.max_hp * 0.3
+		if r.get("shown_hp", -1) != h.hp:
+			r.shown_hp = h.hp
+			r.hp.text = "PV %d / %d" % [h.hp, h.max_hp]
+		if r.get("shown_low", null) != low:
+			r.shown_low = low
+			r.hp.add_theme_color_override("font_color", Color("ff7a7a") if low else Color.WHITE)
 		r.bar.v = float(h.hp) / h.max_hp
-		r.pr.text = "Rêve %d" % h.pr
+		if r.get("shown_pr", -1) != h.pr:
+			r.shown_pr = h.pr
+			r.pr.text = "Rêve %d" % h.pr
 		r.atb.v = h.atb / 100.0
 		r.atb.full = h.atb >= 100.0 and h.alive
 	for e in enemies:
 		var r: Dictionary = rows[e.id]
 		r.box.visible = e.alive
-		var sp: Vector2 = e.actor.position + Vector2(-85, -_height(e) - 60)
-		r.box.position = sp
+		r.box.position = e.actor.position + Vector2(-85, -_height(e) - 60)
 		r.bar.v = float(e.hp) / e.max_hp
 		r.atb.v = e.atb / 100.0
+		var st: int = (1 if e.armor else 0) | (2 if e.charging else 0)
+		if r.get("shown_st", -1) == st: continue
+		r.shown_st = st
 		var tags := []
 		if e.armor: tags.append({"gardien": "Carapace de rêve", "noyau": "Blindage"}.get(e.id, "Armure de roc"))
 		if e.charging: tags.append("Se charge !")
@@ -229,12 +244,17 @@ func _update_cursor() -> void:
 	if state == "menu" and cur:
 		cursor.visible = true
 		cursor.position = cur.actor.get_global_transform_with_canvas().origin + Vector2(-12, -_height(cur) - 45 + sin(t * 6) * 5)
-		cursor.add_theme_color_override("font_color", Game.GOLD)
+		_cursor_color(Game.GOLD)
 	elif state == "target" and targets.size() > 0:
 		var tg: Dictionary = targets[tgt_i]
 		cursor.visible = true
 		cursor.position = tg.actor.get_global_transform_with_canvas().origin + Vector2(-12, -_height(tg) - 100 + sin(t * 6) * 5)
-		cursor.add_theme_color_override("font_color", Game.CYAN)
+		_cursor_color(Game.CYAN)
+
+func _cursor_color(c: Color) -> void:
+	if cursor.get_meta("col", Color.BLACK) != c:
+		cursor.set_meta("col", c)
+		cursor.add_theme_color_override("font_color", c)
 
 func _open_menu(h: Dictionary) -> void:
 	cur = h; state = "menu"; cmd_i = 0

@@ -6,9 +6,9 @@ var main: Main
 
 var args := {}
 
-const FILL := 25.0          # points de jauge par seconde à vitesse 1
+const FILL := BattleRules.FILL
 
-const MENU_SLOW := 0.3      # vitesse des ennemis pendant le choix
+const MENU_SLOW := BattleRules.MENU_SLOW
 
 var fighters: Array = []
 
@@ -99,19 +99,10 @@ func _height(f: Dictionary) -> float:
 	return f.h
 
 # ------------------------------------------------------------------ menu
-const COMBOS := {
-	"gamin+soldate": {"id": "onde", "name": "Onde de choc", "pair": "Foudre + Pierre", "cost": {"gamin": 3, "soldate": 2},
-		"desc": "Frappe tous les ennemis et brise les armures."},
-	"soldate+ilo": {"id": "sables", "name": "Sables mouvants", "pair": "Pierre + Brume", "cost": {"soldate": 2, "ilo": 3},
-		"desc": "Frappe tous les ennemis et ralentit leurs jauges."},
-	"gamin+ilo": {"id": "orage", "name": "Orage invisible", "pair": "Foudre + Brume", "cost": {"gamin": 3, "ilo": 3},
-		"desc": "La foudre frappe depuis la brume : gros dégâts, impossible à esquiver, jauges vidées."},
-}
+const COMBOS := BattleRules.COMBOS
 
 func _combo_key(a: String, b: String) -> String:
-	for k in COMBOS:
-		if k == a + "+" + b or k == b + "+" + a: return k
-	return ""
+	return BattleRules.combo_key(a, b)
 
 var menu_sig := 0
 
@@ -188,13 +179,13 @@ func _redirect(tg: Dictionary) -> Dictionary:
 # ------------------------------------------------------------------ fin
 func _check_end() -> void:
 	if state == "end": return
-	if _alive(enemies).is_empty():
-		state = "end"
-		await get_tree().create_timer(0.8).timeout
+	var result := BattleRules.outcome(heroes, enemies)
+	if result == BattleRules.OUTCOME_NONE: return
+	state = "end"
+	await get_tree().create_timer(0.8).timeout
+	if result == BattleRules.OUTCOME_VICTORY:
 		await _victory()
-	elif _alive(heroes).is_empty():
-		state = "end"
-		await get_tree().create_timer(0.8).timeout
+	else:
 		await _defeat()
 
 func _victory() -> void:
@@ -275,24 +266,13 @@ func _victory() -> void:
 	var cont := Game.label(Game.keys("Entrée pour continuer"), 20, Color(1, 1, 1, 0.7), Game.font_body, 6)
 	cont.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; box.add_child(cont)
 	await _wait_accept()
-	if encounter == "village":
-		main.goto("explore", {"level": "Village", "after_battle": true, "no_banner": true})
-	elif encounter == "centre":
-		main.goto("explore", {"level": "Mines"})
-	elif encounter == "mines":
-		main.goto("explore", {"level": "Mines", "after_battle": true, "no_banner": true})
-	elif encounter == "gardien":
-		main.goto("explore", {"level": "Reve", "after_battle": true, "no_banner": true})
-	elif encounter == "noyau":
-		main.goto("explore", {"level": "Effondrement", "after_battle": true, "no_banner": true})
-	elif encounter == "brume":
-		main.goto("explore", {"level": "Brume", "after_battle": true, "no_banner": true})
-	elif encounter == "orsane":
-		main.goto("explore", {"level": "Flotte", "after_battle": true, "no_banner": true})
-	elif encounter == "cauchemar":
-		main.goto("explore", {"level": "ReveCommun", "after_battle": true, "no_banner": true})
-	else:
+	var next: Dictionary = Story.AFTER_BATTLE.get(encounter, Story.AFTER_BATTLE["pont"])
+	if next.level == "ending":
 		main.goto("ending")
+	elif next.resume:
+		main.goto("explore", {"level": next.level, "after_battle": true, "no_banner": true})
+	else:
+		main.goto("explore", {"level": next.level})
 
 func _defeat() -> void:
 	Game.music("")
@@ -364,10 +344,14 @@ class Bar extends Control:
 	var col := Color.WHITE
 	var gauge := false
 	var full := false
+	var _drawn := Vector2(-1, -1)
 	func _process(d: float) -> void:
 		shown = move_toward(shown, v, d * (3.0 if gauge else 0.8))
 		if not gauge and shown < v: shown = v
-		queue_redraw()
+		# redessin seulement si la barre change ou clignote (pleine)
+		if full or _drawn != Vector2(v, shown):
+			_drawn = Vector2(v, shown)
+			queue_redraw()
 	func _draw() -> void:
 		draw_rect(Rect2(Vector2(-2, -2), size2 + Vector2(4, 4)), Color(0, 0, 0, 0.6))
 		draw_rect(Rect2(Vector2.ZERO, size2), Color(1, 1, 1, 0.08))

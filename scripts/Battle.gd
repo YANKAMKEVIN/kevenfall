@@ -48,18 +48,18 @@ func _process(delta: float) -> void:
 	for f in enemies:
 		if f.alive and f.id != "golem" and f.id != "noyau": f.actor.bob = sin(t * (2.0 if f.id.begins_with("spectre") or f.id == "cauchemar" else 5.0) + f.home.x) * (12.0 if f.id.begins_with("spectre") or f.id == "cauchemar" else 6.0)
 	if state == "run" or state == "menu" or state == "target":
-		var slow := 1.0 if state == "run" else MENU_SLOW
+		var menu := state != "run"
 		for f in fighters:
 			if not f.alive: continue
 			if f.hero:
-				if f.atb >= 100.0 or (state != "run" and f == cur): continue
-				f.atb = minf(100.0, f.atb + FILL * f.spd * delta * slow)
+				if f.atb >= 100.0 or (menu and f == cur): continue
+				f.atb = BattleRules.atb_after(f.atb, f.spd, delta, menu)
 				if f.atb >= 100.0:
 					ready_q.append(f); Game.sfx("ready", -10.0)
 			else:
-				var sm := 0.5 if f.slow > 0.0 else 1.0
+				var slowed: bool = f.slow > 0.0
 				f.slow = maxf(0.0, f.slow - delta)
-				f.atb = minf(100.0, f.atb + FILL * f.spd * delta * slow * sm)
+				f.atb = BattleRules.atb_after(f.atb, f.spd, delta, menu, slowed)
 				if f.atb >= 100.0:
 					_enemy_turn(f)
 					break

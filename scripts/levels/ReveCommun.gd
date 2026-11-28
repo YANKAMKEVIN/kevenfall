@@ -7,6 +7,7 @@ const ECHOES := {"echo_oiseau": 1000.0, "echo_tortue": 2250.0, "echo_serpent": 3
 var heard := {}
 var met := false
 var ilo: Actor
+var ending_reached := ""   # fin jouée (Story.ENDING_*), lue par le robot de parcours
 
 func _config() -> Dictionary:
 	return {
@@ -132,9 +133,6 @@ func _cauchemar() -> void:
 	await wait(0.3)
 	main.goto("battle", {"encounter": "cauchemar"})
 
-func _mixed() -> bool:
-	return Game.flags.get("communion1", "") != Game.flags.get("communion2", "")
-
 func _titans() -> void:
 	busy = true
 	player.facing = 1
@@ -154,7 +152,7 @@ func _titans() -> void:
 		{"title": "Bercer", "col": Color("7fe8c8"), "text": "Endormir les trois titans pour des siècles. Les Kevrês s'éteindront.\n\nLe Gamin survivra... mais il deviendra un enfant ordinaire."},
 		{"title": "Éveiller", "col": Color("ff9a6a"), "text": "Laisser les titans se lever. Le monde changera de forme.\n\nLe Gamin retournera à l'Oiseau et deviendra sa voix."},
 	]
-	var accord_ok := listened and _mixed()
+	var accord_ok := Story.accord_available(Game.flags, heard.size())
 	if accord_ok:
 		opts.append({"title": "L'Accord", "col": Game.GOLD, "text": "Demander aux titans de se réveiller lentement et de poser le monde au sol.\n\nPossible seulement parce que vous les avez tous écoutés, et que vous n'avez pas toujours choisi pareil."})
 	elif listened:
@@ -164,19 +162,14 @@ func _titans() -> void:
 	busy = true
 	var c := await choose("Que répond le Gamin aux trois titans ?", opts)
 	busy = true
-	var ending := ""
-	if c == 2:
-		ending = "accord"
-	else:
-		Game.flags["communion3"] = "bercer" if c == 0 else "eveiller"
-		var b := 0
-		for k in ["communion1", "communion2", "communion3"]:
-			if Game.flags.get(k, "") == "bercer": b += 1
-		ending = "sommeil" if b >= 2 else "reveil"
+	if c != Story.FINAL_ACCORD:
+		Game.flags["communion3"] = Story.final_communion(c)
+	var ending := Story.ending_for(Game.flags, c)
 	await _ending(ending)
 
 func _ending(ending: String) -> void:
 	busy = true
+	ending_reached = ending
 	Game.music("")
 	match ending:
 		"sommeil":
