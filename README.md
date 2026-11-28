@@ -65,20 +65,34 @@ Le combat du pont a été réglé en simulant 2 400 parties (`tools/sim_combat.p
 - `art/` : les illustrations peintes avec Codex (héros, monstres, décors).
 - `audio/` : musiques et bruitages générés (`tools/audio_synth.py`).
 - `tools/art/` : les prompts Codex et le script `generer.sh` pour repeindre ou ajouter des visuels.
-- `scripts/battle/` : le combat, découpé en couches qui s'héritent : `BattleBase` (état, aides, fin de combat), `BattleStage` (scène, combattants, interface, menu), `BattleHeroes` (actions des héros, combos), `BattleEnemies` (tour des ennemis). `scripts/Battle.gd` ne garde que la boucle et les entrées.
+- `scripts/battle/`: le combat, découpé en couches qui s'héritent : `BattleBase` (état, aides, fin de combat), `BattleStage` (scène, combattants, interface, menu), `BattleHeroes` (actions des héros, combos), `BattleEnemies` (tour des ennemis). `scripts/Battle.gd` ne garde que la boucle et les entrées. Les règles pures (jauges, dégâts, esquives, phases, issue du combat) sont dans `BattleRules.gd`, sans scène, et testées.
+- `scripts/exploration/` : le moteur d'exploration, en couches : `ExploreBase` (état, décor, interface, météo), `ExploreMotion` (déplacement, interactions, éclats), `ExploreStory` (mise en scène : cartons, choix, illustrations), plus `GroundDeck`, `GlowLayer`, `DreamShard`, `Revelin`. `scripts/Exploration.gd` assemble le niveau.
+- `scripts/Story.gd` : l'ordre des 11 chapitres, la suite de chaque combat et les règles des trois fins (testées).
 - `scripts/levels/` : les chapitres (Village, Convoi, Pont, Centre, Mines, Reve, Effondrement, Brume, Temple, Flotte, ReveCommun).
-- `tools/AutoShots.gd` : outil qui joue tout le jeu tout seul (`--act2` pour commencer à l'acte II, `--fin2` pour commencer au chapitre 6, `--eveiller` pour choisir Éveiller, `--act3` pour l'acte III (`--stop-after=act3a` s'arrête avant le chapitre 11), `--final` pour le chapitre 11 seul, `--fin=accord|sommeil|reveil` pour la fin) et prend des captures (`godot --path . -- --shots=/chemin`).
+- `tests/` : les tests unitaires (`tests/unit/test_*.gd`, lanceur maison `tests/TestRunner.gd`, API proche de GUT).
+- `tools/AutoShots.gd` (+ `tools/bot/`) : le robot qui joue tout le jeu tout seul (`--act2` pour commencer à l'acte II, `--fin2` pour commencer au chapitre 6, `--eveiller` pour choisir Éveiller, `--act3` pour l'acte III (`--stop-after=act3a` s'arrête avant le chapitre 11), `--final` pour le chapitre 11 seul, `--fin=accord|sommeil|reveil` pour la fin). Il vérifie que chaque chapitre est traversé, que sa sauvegarde se relit et que la fin jouée est celle visée. Sans rendu : `--parcours` ; avec captures : `godot --path . -- --shots=/chemin`.
+- Aucun script ne dépasse 400 lignes (`tools/check_sizes.sh`, vérifié en CI).
 
 ## Sauvegarde
 La partie est sauvegardée automatiquement au début de chaque chapitre (`user://sauvegarde.json`) ; « Continuer » apparaît alors sur l'écran titre. Le menu « Chapitres » sert au rejeu et n'écrase pas la sauvegarde.
-Le format est versionné (`scripts/SaveData.gd`, `VERSION`) : toute évolution du format incrémente la version et ajoute une migration ; une sauvegarde abîmée ou venant d'une version plus récente est ignorée, jamais chargée à moitié.
+Le format est versionné (`scripts/SaveData.gd`, `VERSION`, actuellement 2) : toute évolution du format incrémente la version et ajoute une migration (`migrate()`, une sauvegarde v1 se recharge). Une sauvegarde abîmée ou venant d'une version plus récente est ignorée, jamais chargée à moitié ni effacée. L'écriture passe par un fichier temporaire, et la sauvegarde précédente est gardée en secours (`.bak`) : si le fichier principal est abîmé, la partie reprend sur le secours. Un drapeau inconnu du format est écarté (avec un avertissement) au lieu de rendre la sauvegarde illisible.
+
+## Arrière-plan
+Quand la fenêtre (ou l'appli, ou l'onglet) passe en arrière-plan, le jeu se met en pause et se tait ; il reprend au retour (`Game.set_background`).
 
 ## Version
 Le numéro est dans `project.godot` (`application/config/version`), lu par `Game.version()` et affiché sur l'écran titre.
 
 ## Tests
 ```bash
-godot --headless --path . -- --unit        # tests unitaires (sauvegarde, aides manette, version)
-GODOT=godot tools/ci.sh --act3             # le robot joue un lot (voir .github/workflows/tests.yml)
+tools/check.sh                                   # taille des fichiers, import, chargement des scripts, tests unitaires
+godot --headless --path . -- --unit              # tests unitaires seuls (--unit=save,story pour filtrer)
+tools/parcours.sh --fin=accord                   # le robot joue les 11 chapitres sans rendu (~20 s)
+tools/parcours.sh --eveiller --fin=reveil        # … une autre fin
+GODOT=godot tools/ci.sh --final                  # partie avec rendu et captures (écran virtuel)
 ```
-La CI GitHub lance les tests unitaires et la partie complète en quatre lots parallèles sur chaque PR.
+(`GODOT=/chemin/vers/godot` si `godot` n'est pas dans le PATH.)
+
+Les avertissements GDScript qui signalent de vrais défauts (variable inutilisée ou masquée, code inatteignable…) sont bloquants (`project.godot`, section `[debug]`).
+
+La CI GitHub (`.github/workflows/tests.yml`) bloque une PR si une de ces étapes échoue : vérifications et tests unitaires, puis trois parcours complets (une par fin : l'Accord, le Long Sommeil, le Réveil). La partie avec captures d'écran se lance à la main (onglet Actions, case « captures »).
