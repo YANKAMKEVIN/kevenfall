@@ -12,7 +12,8 @@ func _execute(cmd: String, target: Variant) -> void:
 		"attack":
 			await _show_banner(h.name + "  ·  Attaque", 0.0)
 			await _melee(h, target)
-			var dmg: int = {"gamin": randi_range(7, 9), "soldate": randi_range(12, 15), "ilo": randi_range(9, 11)}[h.id] + h.get("atk_bonus", 0)
+			var r: Array = BattleRules.attack_range(h.id)
+			var dmg: int = randi_range(r[0], r[1]) + h.get("atk_bonus", 0)
 			await _hit(target, dmg, "phys")
 		"eclair":
 			h.pr -= 3
@@ -313,7 +314,6 @@ func _combo_sables() -> void:
 	await get_tree().create_timer(0.9).timeout
 
 func _combo_orage() -> void:
-	var g: Dictionary = _f("gamin"); var i: Dictionary = _f("ilo")
 	Game.sfx("heal", -2.0, 0.4)
 	for k in 3:
 		glow.burst(Vector2(randf_range(700, 1150), randf_range(300, 480)), Color(0.55, 0.45, 0.95, 0.6), 300.0)
@@ -337,13 +337,7 @@ func _combo_orage() -> void:
 ## Applique des dégâts à un ennemi.
 func _hit(e: Dictionary, base: int, kind: String) -> void:
 	if not e.alive: return
-	var dmg := float(base)
-	var note := ""
-	var col := Color.WHITE
-	var dodge := 0.0
-	if kind == "phys":
-		dodge = 0.4 if e.id.begins_with("spectre") else (0.15 if e.id.begins_with("cauche") else 0.0)
-		if e.id == "orsane" and e.get("phase", 0) == 2: dodge = 0.35
+	var dodge := BattleRules.dodge_chance(e, kind)
 	if dodge > 0.0 and randf() < dodge:
 		_float_text(e.actor.position + Vector2(0, -_height(e) * 0.6), "Esquive", Color(0.75, 0.75, 0.9), 30)
 		Game.sfx("cancel", -10.0, 0.7)
@@ -351,21 +345,16 @@ func _hit(e: Dictionary, base: int, kind: String) -> void:
 		tw.tween_property(e.actor, "position:x", e.home.x, 0.25)
 		await get_tree().create_timer(0.5).timeout
 		return
-	if kind == "foudre":
-		if e.id.begins_with("spectre"): dmg *= 1.5; note = "Faiblesse !"; col = Game.GOLD
-		elif e.id == "extracteur" or e.id.begins_with("foret") or e.id == "noyau": dmg *= 1.3; note = "Court-circuit !"; col = Game.GOLD
-		elif e.id == "golem": dmg *= 0.8
-	if e.armor and kind in ["phys", "foudre"] and e.id in ["gardien", "noyau", "orsane"]:
-		dmg *= 0.5 if kind == "foudre" else 0.35; note = "Résiste"; col = Color(0.7, 0.7, 0.75)
-	elif e.armor and kind == "phys":
-		dmg *= 0.4; note = "Résiste"; col = Color(0.7, 0.7, 0.75)
-		if not armor_hint_done:
-			armor_hint_done = true
-			_tip("Cette carapace encaisse les coups. Utilise les Kevrês ou une attaque combinée pour la briser !")
-	elif e.get("was_armored", false) and kind == "phys":
-		dmg *= 1.2
-	var d := maxi(1, int(round(dmg)))
-	e.hp = maxi(0, e.hp - d)
+	var res := BattleRules.damage_to_enemy(e, base, kind)
+	var note: String = res.note
+	var col := Color.WHITE
+	if res.tone == "weak": col = Game.GOLD
+	elif res.tone == "resist": col = Color(0.7, 0.7, 0.75)
+	if res.armor_hint and not armor_hint_done:
+		armor_hint_done = true
+		_tip("Cette carapace encaisse les coups. Utilise les Kevrês ou une attaque combinée pour la briser !")
+	var d: int = res.dmg
+	e.hp = BattleRules.hp_after(e.hp, d)
 	Game.sfx("hit", -2.0, randf_range(0.85, 1.15))
 	_flash_actor(e.actor)
 	var kb := create_tween(); kb.tween_property(e.actor, "position:x", e.home.x + 18, 0.06)
@@ -381,9 +370,7 @@ func _hit(e: Dictionary, base: int, kind: String) -> void:
 	await get_tree().create_timer(0.55).timeout
 
 func _orsane_phase(e: Dictionary) -> void:
-	var want := 0
-	if e.hp < e.max_hp * 0.33: want = 2
-	elif e.hp < e.max_hp * 0.66: want = 1
+	var want := BattleRules.orsane_phase(e.hp, e.max_hp)
 	if want <= e.phase: return
 	e.phase = want
 	if want == 1:

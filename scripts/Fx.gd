@@ -2,14 +2,22 @@ class_name Fx
 extends Node2D
 ## Effets dessinés : éclairs, étincelles, onde de choc, rochers, halos.
 var items: Array = []
+var _was_empty := true
 func _process(d: float) -> void:
-	for it in items:
+	if items.is_empty():
+		if not _was_empty:  # un dernier redessin pour effacer les effets finis
+			_was_empty = true; queue_redraw()
+		return
+	_was_empty = false
+	for i in range(items.size() - 1, -1, -1):  # retrait sur place : pas de nouveau tableau par image
+		var it: Dictionary = items[i]
 		it.t += d
+		if it.t >= it.life:
+			items.remove_at(i); continue
 		if it.has("parts"):
 			for p in it.parts:
 				p.v.y += p.get("g", 600.0) * d
 				p.p += p.v * d
-	items = items.filter(func(it): return it.t < it.life)
 	queue_redraw()
 func bolt(a: Vector2, b: Vector2, col: Color) -> void:
 	var pts := PackedVector2Array()

@@ -1,89 +1,12 @@
-extends Node
-## Outil de développement : joue tout l'acte I automatiquement et enregistre des captures.
-## Lancement : godot --path . -- --shots=<dossier>
-
-var out := "user://shots"
-var main: Main
-var auto_dialogue := true
-var auto_battle := true
-var log_lines: Array = []
-var fails := 0           # attentes de progression qui n'ont jamais abouti (le jeu est bloqué)
-
-func _ready() -> void:
-	for a in OS.get_cmdline_user_args():
-		if a.begins_with("--shots="): out = a.substr(8)
-	DirAccess.make_dir_recursive_absolute(out)
-	process_mode = Node.PROCESS_MODE_ALWAYS
-	await _run()
-
-func _wait(s: float) -> void:
-	await get_tree().create_timer(s).timeout
-
-func shot(name: String) -> void:
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(out + "/" + name + ".png")
-	print("SHOT ", name)
-
-func press(action: String) -> void:
-	var e := InputEventAction.new(); e.action = action; e.pressed = true
-	Input.parse_input_event(e)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var e2 := InputEventAction.new(); e2.action = action; e2.pressed = false
-	Input.parse_input_event(e2)
-	await get_tree().process_frame
-
-var _tick := 0.0
-func _process(delta: float) -> void:
-	_tick += delta
-	if _tick < 0.25 or main == null: return
-	_tick = 0.0
-	var c: Variant = main.current
-	if c == null: return
-	if auto_dialogue and "dialogue" in c and c.dialogue and c.dialogue.active:
-		press("interact")
-	if auto_battle and "state" in c and c.get("encounter") != null:
-		if c.state == "menu":
-			var pick := 0
-			for i in c.cmds.size():
-				if c.cmds[i].id == "combo3" and c._can_use(c.cmds[i]): pick = i
-			for i in c.cmds.size():
-				if pick != 0: break
-				if c.cmds[i].id in ["seisme", "rempart", "tempete", "arc"] and c._can_use(c.cmds[i]) and randf() < 0.6: pick = i
-			for i in c.cmds.size():
-				if pick != 0: break
-				if c.cmds[i].id == "combo" and c._can_use(c.cmds[i]): pick = i; break
-				if c.cmds[i].id in ["seisme", "tempete", "arc", "rempart", "chaine"] and c._can_use(c.cmds[i]) and pick == 0: pick = i
-				if c.cmds[i].id in ["eclair", "garde"] and c._can_use(c.cmds[i]) and pick == 0: pick = i
-			c.cmd_i = pick; c._menu_refresh()
-			press("ui_accept")
-		elif c.state == "target":
-			press("ui_accept")
-
-## soft = attente seulement utile pour une capture (ex. une attaque combinée que le robot
-## ne déclenche pas toujours) : son échec ne fait pas échouer le test.
-func _until(cond: Callable, timeout := 60.0, soft := false) -> bool:
-	var tt := 0.0
-	while tt < timeout:
-		if cond.call(): return true
-		await _wait(0.1); tt += 0.1
-	if soft:
-		print("TIMEOUT (capture seulement)")
-	else:
-		fails += 1
-		print("ECHEC : attente de progression expirée (%d s) après la capture précédente" % int(timeout))
-	return false
-
-## Fin du test : code de sortie non nul si le jeu s'est bloqué (pour la CI).
-func _finish() -> void:
-	print("RESULTAT : %d échec(s)" % fails)
-	print("done")
-	get_tree().quit(1 if fails > 0 else 0)
-
-func _stop_after(seg: String) -> bool:
-	return ("--stop-after=" + seg) in OS.get_cmdline_user_args()
-
-func _cur() -> Node: return main.current
+extends "res://tools/bot/BotActs12.gd"
+## Robot de parcours : joue le jeu tout seul, du titre jusqu'à une des trois fins, en
+## vérifiant que chaque chapitre est traversé (et sa sauvegarde relisible) et que la fin
+## jouée est celle visée. Les dialogues et les combats sont joués automatiquement.
+##
+## godot --headless --path . --fixed-fps 60 -- --parcours [options]   (sans rendu, ~1 min)
+## godot --path . -- --shots=<dossier> [options]                      (avec captures d'écran)
+## Options : --act2 | --fin2 | --act3 | --final (départ), --stop-after=act1|act2|fin2|act3a,
+## --eveiller (Éveiller à la Tortue), --fin=accord|sommeil|reveil (fin visée, accord par défaut).
 
 func _run() -> void:
 	await _wait(1.0)
@@ -121,179 +44,6 @@ func _run() -> void:
 	if _stop_after("fin2"): _finish(); return
 	await _act3()
 	_finish()
-
-func _act1() -> void:
-	# --- Chapitre 1
-	Game.reset()
-	auto_dialogue = false
-	main.goto("explore", {"level": "Village"})
-	await _wait(6.5)
-	await shot("02_intro")
-	auto_dialogue = true
-	await _until(func(): return _cur().get("busy") == false, 40)
-	var v: Variant = _cur()
-	await shot("03_village")
-	v.player.position.x = 620; v.cam.reset_smoothing()
-	await _wait(0.5)
-	auto_dialogue = false
-	v.talk("sauge")
-	await _wait(1.5)
-	await shot("04_mame_sauge")
-	auto_dialogue = true
-	await _until(func(): return v.busy == false, 30)
-	# paratonnerres 1 et 2
-	for x in [1320.0, 2580.0]:
-		v.player.position = Vector2(x, 540); v.player.facing = 1; v.cam.reset_smoothing()
-		await _wait(0.6)
-		await press("zap")
-		await _wait(0.25)
-		if x == 1320.0: await shot("05_foudre_paratonnerre")
-		await _wait(1.0)
-	v.player.position = Vector2(2400, 365); v.cam.reset_smoothing()
-	await _wait(2.0)
-	await _until(func(): return v.busy == false, 20)
-	v.player.position = Vector2(3150, 540); v.cam.reset_smoothing()
-	await _wait(1.0)
-	await shot("06_cauchemerles")
-	v.player.position.x = 3300
-	await _until(func(): return _cur().get("encounter") != null, 20)
-	await _wait(3.0)
-	await shot("07_combat_village")
-	await _until(func(): return _cur().get("state") == "end", 90)
-	await _wait(4.0)
-	await shot("08_victoire_village")
-	await press("ui_accept")
-	await _until(func(): return _cur().get("level_w") != null, 20)
-	await _wait(1.0)
-	await _until(func(): return _cur().busy == false, 20)
-	v = _cur()
-	v.player.position = Vector2(4000, 540); v.player.facing = 1; v.cam.reset_smoothing()
-	await _wait(0.6)
-	await press("zap")
-	await _wait(9.0)
-	await shot("09_foreuse")
-	await _until(func(): return _cur() != v and _cur().get("guards") != null, 90)
-	# --- Chapitre 2
-	await _wait(1.0)
-	await _until(func(): return _cur().busy == false, 30)
-	var cv: Variant = _cur()
-	cv.player.position.x = 600; cv.cam.reset_smoothing()
-	await _wait(1.5)
-	await shot("10_convoi")
-	cv.player.position.x = 700; cv.crouching = true
-	auto_dialogue = false
-	# se faire attraper
-	cv.player.position.x = cv.guards[0].actor.position.x + 120 * cv.guards[0].actor.facing
-	await _until(func(): return cv.dialogue.active, 10)
-	await _wait(1.2)
-	await shot("11_attrape")
-	auto_dialogue = true
-	await _until(func(): return cv.busy == false, 30)
-	cv.player.position.x = 3440; cv.cam.reset_smoothing()
-	await _wait(3.0)
-	await shot("12_feu_de_camp")
-	await _until(func(): return _cur() != cv, 90)
-	# --- Chapitre 3
-	await _wait(1.0)
-	await _until(func(): return _cur().get("cutscene_done") != null and _cur().busy == false, 30)
-	var p: Variant = _cur()
-	p.player.position.x = 700; p.cam.reset_smoothing()
-	p.talk("soldate")
-	await _until(func(): return p.busy == false, 30)
-	p.player.position.x = 3390
-	await _until(func(): return _cur().get("encounter") != null, 90)
-	await _wait(3.0)
-	await shot("13_combat_pont")
-	await _until(func(): return _cur().get("state") == "anim" and _cur().banner.text.contains("ONDE"), 120, true)
-	await _wait(1.3)
-	await shot("14_onde_de_choc")
-	await _until(func(): return _cur().get("state") == "end", 180)
-	await _wait(4.5)
-	await shot("15_victoire")
-	var b: Variant = _cur()
-	print("BATTLE hp: ", b._f("gamin").hp, " / ", b._f("soldate").hp)
-	await press("ui_accept")
-	await _until(func(): return _cur().get("encounter") == null and _cur().has_method("_end_card"), 20)
-	await _wait(14.0)
-	await shot("16_fin")
-	await press("ui_accept")
-	await _until(func(): return _cur().get("read") != null, 60)
-
-func _act2() -> void:
-	# --- Chapitre 4 : le centre d'extraction
-	await _until(func(): return _cur().get("read") != null, 30)
-	auto_dialogue = false
-	await _wait(5.0)
-	await shot("17_acte2")
-	auto_dialogue = true
-	await _until(func(): return _cur().busy == false, 60)
-	var c: Variant = _cur()
-	c.player.position.x = 700; c.cam.reset_smoothing()
-	await _wait(1.5)
-	await shot("18_centre")
-	for k in ["r1", "r2", "r3"]:
-		var o: Variant = null
-		for ob in c.cfg.objects:
-			if ob.id == k: o = ob
-		c.player.position.x = o.x - 60; c.cam.reset_smoothing()
-		await _wait(0.4)
-		if k == "r2": auto_dialogue = false
-		c.talk(k)
-		if k == "r2":
-			await _wait(1.5)
-			await shot("19_rapport")
-			auto_dialogue = true
-		if k != "r3": await _until(func(): return c.busy == false and not c.dialogue.active, 40)
-	# Orsane se déclenche après le 3e rapport
-	await _until(func(): return c.dialogue.active and c.dialogue.lines.size() > 0 and c.dialogue.lines[0][0] == "orsane", 90)
-	auto_dialogue = false
-	await _wait(1.5)
-	await shot("20_orsane")
-	auto_dialogue = true
-	await _until(func(): return c.orsane_done and c.busy == false, 90)
-	c.player.position.x = 3820
-	await _until(func(): return _cur().get("encounter") != null, 90)
-	await _wait(3.0)
-	await shot("21_combat_extracteur")
-	await _until(func(): return _cur().get("state") == "end", 240)
-	await _wait(4.0)
-	await shot("22_victoire_centre")
-	await press("ui_accept")
-	# --- Chapitre 5 : les mines
-	await _until(func(): return _cur().get("crystal_nodes") != null, 30)
-	await _wait(1.0)
-	await _until(func(): return _cur().busy == false, 60)
-	var m: Variant = _cur()
-	m.player.position.x = 500; m.cam.reset_smoothing()
-	await _wait(1.0)
-	await shot("23_mines_sombres")
-	for i in m.CRYSTALS.size():
-		var x: float = m.CRYSTALS[i]
-		m.player.position = Vector2(x - 200, 540); m.player.facing = 1
-		if x > 2000 and x < 2900: m.player.position = Vector2(2100, 540)
-		m.cam.reset_smoothing()
-		await _wait(0.5)
-		await press("zap")
-		await _wait(0.3)
-		if i == 2: await shot("24_foudre_cristal")
-		await _wait(1.0)
-	m.player.position = Vector2(3500, 540); m.cam.reset_smoothing()
-	await _wait(1.5)
-	await shot("25_mines_eclairees")
-	m.player.position.x = 3850
-	await _until(func(): return m.dialogue.active, 20)
-	auto_dialogue = false
-	await _wait(1.5)
-	await shot("26_ilo")
-	auto_dialogue = true
-	await _until(func(): return _cur().get("encounter") != null, 90)
-	await _until(func(): return _cur().get("state") == "anim" and _cur().banner.text.contains("★"), 120, true)
-	await _wait(1.2)
-	await shot("27_combo_orage")
-	await _until(func(): return _cur().get("state") == "end", 240)
-	await _wait(4.0)
-	await shot("28_victoire_mines")
-	await press("ui_accept")
 
 func _fin2() -> void:
 	# --- Chapitre 6 : le rêve de la Tortue
@@ -379,11 +129,6 @@ func _fin2() -> void:
 	await _wait(30.0)
 	await shot("42_fin_acte2")
 	await press("ui_accept")
-
-func _arg_fin() -> String:
-	for a in OS.get_cmdline_user_args():
-		if a.begins_with("--fin="): return a.substr(6)
-	return "accord"
 
 func _act3() -> void:
 	# --- Chapitre 8 : la mer de brume
@@ -539,6 +284,7 @@ func _act3b() -> void:
 		await press("ui_right"); await _wait(0.3); await press("ui_right"); await _wait(0.3)
 	await press("ui_accept")
 	await _until(func(): return r.art_layer != null and r.dialogue.active, 120)
+	ending_seen = r.ending_reached
 	auto_dialogue = false
 	await _wait(2.5)
 	await shot("64_fin_" + fin)

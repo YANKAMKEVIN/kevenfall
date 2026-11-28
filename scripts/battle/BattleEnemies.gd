@@ -277,16 +277,14 @@ func _hurt(tg: Dictionary, base: int) -> void:
 			_float_text(h.actor.position + Vector2(0, -_height(h) * 0.6), "Esquive", Color("b9a6ff"), 30)
 			Game.sfx("heal", -12.0, 1.6)
 			return
-	var dmg := float(base)
-	var note := ""
+	var res := BattleRules.damage_to_hero(h, base, h != tg)
+	var note: String = res.note
 	if h != tg:
-		dmg *= 0.6; note = "Garde"
 		Game.sfx("stone", -4.0, 1.4)
-	if h.defend: dmg *= 0.5; note = "Défense" if note == "" else note
-	if h.rempart > 0:
-		h.rempart -= 1; dmg *= 0.5; note = "Rempart"
-	var d := maxi(1, int(round(dmg)))
-	h.hp = maxi(0, h.hp - d)
+	if res.use_rempart:
+		h.rempart -= 1
+	var d: int = res.dmg
+	h.hp = BattleRules.hp_after(h.hp, d)
 	commun = minf(100.0, commun + 4.0)
 	Game.sfx("hit", 0.0, 0.8)
 	_flash_actor(h.actor)

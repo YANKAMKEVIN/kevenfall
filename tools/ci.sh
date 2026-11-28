@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# CI Godot : import sans erreur, puis le robot joue le jeu (arguments passés au robot).
+# Partie avec rendu et captures (écran virtuel) : import sans erreur, puis le robot joue le jeu.
+# (La CI bloquante utilise tools/check.sh et tools/parcours.sh, sans rendu.)
 # --fixed-fps 60 : le temps du jeu avance d'1/60 s par image quelle que soit la vitesse de la machine,
 # le robot joue donc la même partie sur un Mac rapide et sur un serveur de CI lent.
 # Échoue si le robot signale un échec, si une erreur de script apparaît, ou s'il dépasse le temps.
