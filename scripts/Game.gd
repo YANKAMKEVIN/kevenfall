@@ -44,10 +44,45 @@ func _ready() -> void:
 	glow_tex.fill = GradientTexture2D.FILL_RADIAL
 	glow_tex.fill_from = Vector2(0.5, 0.5); glow_tex.fill_to = Vector2(1.0, 0.5)
 	for a in OS.get_cmdline_user_args():
-		if a.begins_with("--shots"):
-			add_child(load("res://tools/AutoShots.gd").new())
-		if a == "--unit":
-			add_child(load("res://tools/UnitTests.gd").new())
+		if a.begins_with("--shots") or a == "--parcours":
+			_start_tool("res://tools/AutoShots.gd")
+		if a == "--unit" or a.begins_with("--unit="):
+			_start_tool("res://tests/TestRunner.gd")
+
+## Outils lancés en ligne de commande (robot, tests) : un script qui ne se charge pas
+## termine le programme en échec au lieu de le laisser tourner sans fin.
+func _start_tool(path: String) -> void:
+	var s: Variant = load(path)
+	if s is GDScript and (s as GDScript).can_instantiate():
+		add_child((s as GDScript).new())
+	else:
+		printerr("ECHEC : %s ne se charge pas" % path)
+		get_tree().quit.call_deferred(1)
+
+# ------------------------------------------------------------------ arrière-plan
+# Fenêtre, onglet ou appli en arrière-plan : le jeu se met en pause (plus de calcul ni de
+# rendu inutiles, la batterie est épargnée, et le joueur ne perd pas un combat en son absence).
+# Seule une pause posée ici est levée au retour : une pause du jeu lui-même n'est pas touchée.
+var bg_paused := false
+var bg_pause_enabled := DisplayServer.get_name() != "headless"  # tests et robot : pas de fenêtre
+
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED:
+			set_background(true)
+		NOTIFICATION_APPLICATION_FOCUS_IN, NOTIFICATION_APPLICATION_RESUMED:
+			set_background(false)
+
+func set_background(away: bool) -> void:
+	if not is_inside_tree() or not bg_pause_enabled:
+		return
+	var tree := get_tree()
+	if away and not tree.paused:
+		tree.paused = true; bg_paused = true
+		AudioServer.set_bus_mute(0, true)
+	elif not away and bg_paused:
+		tree.paused = false; bg_paused = false
+		AudioServer.set_bus_mute(0, false)
 
 ## Numéro de version (project.godot, application/config/version).
 func version() -> String:
@@ -58,26 +93,65 @@ func reset() -> void:
 
 # ------------------------------------------------------------------ sauvegarde
 # Une seule sauvegarde, écrite au début de chaque chapitre (format : SaveData).
+# La sauvegarde précédente est gardée en secours (.bak) : si le fichier principal est
+# abîmé (coupure, disque plein, édition à la main), la partie reprend au chapitre d'avant.
 var save_path := "user://sauvegarde.json"
+
+func backup_path() -> String:
+	return save_path + ".bak"
 
 func save_game(level: String) -> bool:
 	if not SaveData.LEVELS.has(level):
 		return false
-	var d := SaveData.make(level, shards, shards_taken, talked_soldate, flags)
+	var d := SaveData.make(level, shards, shards_taken, talked_soldate, _savable_flags(), version())
+	if not SaveData.is_valid(d):
+		push_warning("Sauvegarde refusée (état incohérent) : %s" % SaveData.to_text(d))
+		return false
 	# écriture dans un fichier temporaire puis renommage : une coupure ne laisse jamais un fichier à moitié écrit
 	var tmp := save_path + ".tmp"
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null:
-		return false
+		return false  # user:// indisponible (lecture seule, disque plein) : le jeu continue sans sauvegarde
 	f.store_string(SaveData.to_text(d))
+	var write_ok := f.get_error() == OK
 	f.close()
+	if not write_ok:
+		DirAccess.remove_absolute(tmp)
+		return false
+	if not _read_file(save_path).is_empty():
+		DirAccess.remove_absolute(backup_path())
+		DirAccess.rename_absolute(save_path, backup_path())
 	return DirAccess.rename_absolute(tmp, save_path) == OK
 
-## Sauvegarde lisible, ou {} s'il n'y en a pas (ou si elle est abîmée).
-func read_save() -> Dictionary:
-	if not FileAccess.file_exists(save_path):
+## Drapeaux à sauvegarder : un drapeau inconnu du format est écarté (avec un avertissement)
+## au lieu de rendre toute la sauvegarde illisible.
+func _savable_flags() -> Dictionary:
+	var out := {}
+	for k: Variant in flags:
+		if SaveData.is_flag_valid(str(k), flags[k]):
+			out[k] = flags[k]
+		else:
+			push_warning("Drapeau non sauvegardé (inconnu du format) : %s" % str(k))
+	return out
+
+func _read_file(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
 		return {}
-	return SaveData.parse(FileAccess.get_file_as_string(save_path))
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null or f.get_length() > SaveData.MAX_BYTES:
+		return {}
+	return SaveData.parse(f.get_as_text())
+
+## Sauvegarde lisible, ou {} s'il n'y en a pas (ou si elle et son secours sont abîmés).
+func read_save() -> Dictionary:
+	var d := _read_file(save_path)
+	return d if not d.is_empty() else _read_file(backup_path())
+
+## Efface la sauvegarde et son secours.
+func delete_save() -> void:
+	for p in [save_path, backup_path(), save_path + ".tmp"]:
+		if FileAccess.file_exists(p):
+			DirAccess.remove_absolute(p)
 
 ## Recharge la partie ; renvoie le chapitre où reprendre, ou "" si impossible.
 func load_game() -> String:
@@ -86,7 +160,7 @@ func load_game() -> String:
 		return ""
 	shards = d["shards"]
 	shards_taken = {}
-	for k in d["shards_taken"]:
+	for k: String in d["shards_taken"]:
 		shards_taken[k] = true
 	talked_soldate = d["talked_soldate"]
 	flags = d["flags"].duplicate(true)
@@ -158,10 +232,19 @@ func _input(e: InputEvent) -> void:
 		pad = false
 
 ## Traduit une aide écrite pour le clavier en boutons de manette (si on joue à la manette).
+## Le résultat est mémorisé : l'aide est relue à chaque image, sans refaire les remplacements.
+var _pad_keys := {}
 func keys(s: String) -> String:
 	if not pad:
 		return s
+	var known: Variant = _pad_keys.get(s)
+	if known != null:
+		return known
+	var src := s
 	for pair in [["← →", "Croix ◄ ►"], ["Espace", "A"], ["X  Foudre", "B  Foudre"], ["E  ", "X  "], ["E · ", "X · "],
 			["↓  se cacher", "Croix ▼  se cacher"], ["Échap  pause", "Start  pause"], ["Échap : reprendre", "Start : reprendre"], ["Q : revenir", "B : revenir"], ["Entrée", "A"], ["↑ ↓", "Croix ▲ ▼"]]:
 		s = s.replace(pair[0], pair[1])
+	if _pad_keys.size() > 256:
+		_pad_keys.clear()
+	_pad_keys[src] = s
 	return s
